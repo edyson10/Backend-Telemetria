@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: fleet-telemetry-backend
+
+  profiles:
+    default: local
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+
+  endpoint:
+    health:
+      show-details: never
+
+info:
+  app:
+    name: Fleet Telemetry Backend
+    description: Fleet telemetry and monitoring system
+    version: 0.0.1
