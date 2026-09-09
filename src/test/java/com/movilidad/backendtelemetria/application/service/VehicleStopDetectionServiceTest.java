@@ -1,5 +1,6 @@
 package com.movilidad.backendtelemetria.application.service;
 
+import com.movilidad.backendtelemetria.application.port.output.TelemetryCachePort;
 import com.movilidad.backendtelemetria.domain.model.Telemetry;
 import com.movilidad.backendtelemetria.domain.model.VehicleStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,36 +10,51 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
 
-public class VehicleStopDetectionServiceTest {
+class VehicleStopDetectionServiceTest {
 
+    private TelemetryCachePort telemetryCachePort;
     private VehicleStopDetectionService service;
 
     @BeforeEach
     void setUp() {
-        service = new VehicleStopDetectionService();
+        telemetryCachePort = mock(TelemetryCachePort.class);
+
+        service = new VehicleStopDetectionService(
+                telemetryCachePort
+        );
     }
 
     @Test
-    void shouldReturnMovingWhenThereIsNoPreviousTelemetry() {
+    void shouldReturnMovingAndStartTrackingWhenThereIsNoPreviousTelemetry() {
 
         Telemetry current = telemetry(
-                "2026-09-08T13:01:00Z",
+                "2026-09-08T13:00:00Z",
                 6.2442,
                 -75.5812
         );
 
         VehicleStatus result =
-                service.evaluate(current, Optional.empty());
+                service.evaluate(
+                        current,
+                        Optional.empty()
+                );
 
         assertEquals(
                 VehicleStatus.MOVING,
                 result
         );
+
+        verify(telemetryCachePort)
+                .saveStopStart(
+                        "VH-001",
+                        current.getTimestamp()
+                );
     }
 
     @Test
-    void shouldReturnMovingWhenPositionChanges() {
+    void shouldReturnMovingAndResetStopTrackingWhenPositionChanges() {
 
         Telemetry previous = telemetry(
                 "2026-09-08T13:00:00Z",
@@ -47,7 +63,7 @@ public class VehicleStopDetectionServiceTest {
         );
 
         Telemetry current = telemetry(
-                "2026-09-08T13:01:30Z",
+                "2026-09-08T13:00:05Z",
                 6.2443,
                 -75.5813
         );
@@ -62,22 +78,34 @@ public class VehicleStopDetectionServiceTest {
                 VehicleStatus.MOVING,
                 result
         );
+
+        verify(telemetryCachePort)
+                .deleteStopStart("VH-001");
     }
 
     @Test
-    void shouldReturnMovingAtExactlyOneMinute() {
+    void shouldReturnMovingWhenVehicleHasBeenStoppedForLessThanOneMinute() {
 
         Telemetry previous = telemetry(
-                "2026-09-08T13:00:00Z",
+                "2026-09-08T13:00:05Z",
                 6.2442,
                 -75.5812
         );
 
         Telemetry current = telemetry(
-                "2026-09-08T13:01:00Z",
+                "2026-09-08T13:00:10Z",
                 6.2442,
                 -75.5812
         );
+
+        when(telemetryCachePort.findStopStart("VH-001"))
+                .thenReturn(
+                        Optional.of(
+                                Instant.parse(
+                                        "2026-09-08T13:00:00Z"
+                                )
+                        )
+                );
 
         VehicleStatus result =
                 service.evaluate(
@@ -92,19 +120,64 @@ public class VehicleStopDetectionServiceTest {
     }
 
     @Test
-    void shouldReturnStoppedWhenPositionRemainsForMoreThanOneMinute() {
+    void shouldReturnMovingWhenVehicleHasBeenStoppedForExactlyOneMinute() {
 
         Telemetry previous = telemetry(
-                "2026-09-08T13:00:00Z",
+                "2026-09-08T13:00:55Z",
                 6.2442,
                 -75.5812
         );
 
         Telemetry current = telemetry(
-                "2026-09-08T13:01:01Z",
+                "2026-09-08T13:01:00Z",
                 6.2442,
                 -75.5812
         );
+
+        when(telemetryCachePort.findStopStart("VH-001"))
+                .thenReturn(
+                        Optional.of(
+                                Instant.parse(
+                                        "2026-09-08T13:00:00Z"
+                                )
+                        )
+                );
+
+        VehicleStatus result =
+                service.evaluate(
+                        current,
+                        Optional.of(previous)
+                );
+
+        assertEquals(
+                VehicleStatus.MOVING,
+                result
+        );
+    }
+
+    @Test
+    void shouldReturnStoppedWhenVehicleRemainsInSamePositionForMoreThanOneMinute() {
+
+        Telemetry previous = telemetry(
+                "2026-09-08T13:01:00Z",
+                6.2442,
+                -75.5812
+        );
+
+        Telemetry current = telemetry(
+                "2026-09-08T13:01:05Z",
+                6.2442,
+                -75.5812
+        );
+
+        when(telemetryCachePort.findStopStart("VH-001"))
+                .thenReturn(
+                        Optional.of(
+                                Instant.parse(
+                                        "2026-09-08T13:00:00Z"
+                                )
+                        )
+                );
 
         VehicleStatus result =
                 service.evaluate(
@@ -116,6 +189,42 @@ public class VehicleStopDetectionServiceTest {
                 VehicleStatus.STOPPED,
                 result
         );
+    }
+
+    @Test
+    void shouldContinueTrackingWhenStopStartIsNotPresent() {
+
+        Telemetry previous = telemetry(
+                "2026-09-08T13:00:05Z",
+                6.2442,
+                -75.5812
+        );
+
+        Telemetry current = telemetry(
+                "2026-09-08T13:00:10Z",
+                6.2442,
+                -75.5812
+        );
+
+        when(telemetryCachePort.findStopStart("VH-001"))
+                .thenReturn(Optional.empty());
+
+        VehicleStatus result =
+                service.evaluate(
+                        current,
+                        Optional.of(previous)
+                );
+
+        assertEquals(
+                VehicleStatus.MOVING,
+                result
+        );
+
+        verify(telemetryCachePort)
+                .saveStopStart(
+                        "VH-001",
+                        previous.getTimestamp()
+                );
     }
 
     private Telemetry telemetry(

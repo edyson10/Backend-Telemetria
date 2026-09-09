@@ -41,7 +41,9 @@ class TelemetryApplicationServiceTest {
                 mock(TelemetryCachePort.class);
 
         vehicleStopDetectionService =
-                new VehicleStopDetectionService();
+                new VehicleStopDetectionService(
+                        telemetryCachePort
+                );
 
         alertRepositoryPort =
                 mock(AlertRepositoryPort.class);
@@ -160,6 +162,15 @@ class TelemetryApplicationServiceTest {
         when(telemetryCachePort.findLatest("VH-001"))
                 .thenReturn(Optional.of(previousLatest));
 
+        when(telemetryCachePort.findStopStart("VH-001"))
+                .thenReturn(
+                        Optional.of(
+                                Instant.parse(
+                                        "2026-09-08T13:00:00Z"
+                                )
+                        )
+                );
+
         TelemetryIngestionResult result =
                 service.ingest(currentTelemetry);
 
@@ -252,6 +263,15 @@ class TelemetryApplicationServiceTest {
 
         when(telemetryCachePort.findLatest("VH-001"))
                 .thenReturn(Optional.of(previousLatest));
+
+        when(telemetryCachePort.findStopStart("VH-001"))
+                .thenReturn(
+                        Optional.of(
+                                Instant.parse(
+                                        "2026-09-08T13:00:00Z"
+                                )
+                        )
+                );
 
         TelemetryIngestionResult result =
                 service.ingest(currentTelemetry);

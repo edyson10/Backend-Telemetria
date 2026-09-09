@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 
 @Component
@@ -26,6 +27,9 @@ public class TelemetryRedisAdapter implements TelemetryCachePort {
 
     private static final String LATEST_KEY_PREFIX =
             "telemetry:latest:";
+
+    private static final String STOP_START_KEY_PREFIX =
+            "telemetry:stop-start:";
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -115,6 +119,41 @@ public class TelemetryRedisAdapter implements TelemetryCachePort {
                     exception
             );
         }
+    }
+
+    @Override
+    public Optional<Instant> findStopStart(String vehicleId) {
+        String key = STOP_START_KEY_PREFIX + vehicleId;
+
+        String value = redisTemplate
+                .opsForValue()
+                .get(key);
+
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(Instant.parse(value));
+    }
+
+    @Override
+    public void saveStopStart(String vehicleId, Instant timestamp) {
+        String key = STOP_START_KEY_PREFIX + vehicleId;
+
+        redisTemplate
+                .opsForValue()
+                .set(
+                        key,
+                        timestamp.toString(),
+                        LATEST_TTL
+                );
+    }
+
+    @Override
+    public void deleteStopStart(String vehicleId) {
+        String key = STOP_START_KEY_PREFIX + vehicleId;
+
+        redisTemplate.delete(key);
     }
 
     private String buildFingerprint(Telemetry telemetry) {

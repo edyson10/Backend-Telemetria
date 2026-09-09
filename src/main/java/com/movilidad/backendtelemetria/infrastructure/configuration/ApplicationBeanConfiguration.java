@@ -20,8 +20,12 @@ import org.springframework.web.client.RestClient;
 public class ApplicationBeanConfiguration {
 
     @Bean
-    public VehicleStopDetectionService vehicleStopDetectionService() {
-        return new VehicleStopDetectionService();
+    public VehicleStopDetectionService vehicleStopDetectionService(
+            TelemetryCachePort telemetryCachePort
+    ) {
+        return new VehicleStopDetectionService(
+                telemetryCachePort
+        );
     }
 
     @Bean

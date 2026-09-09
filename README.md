@@ -88,7 +88,10 @@ Desde la raíz del backend:
 docker compose up -d --build
 docker compose ps
 ```
-
+Par levantar el docker de Redis y probar directamente en tu maquina
+```powershell
+docker compose up -d redis
+```
 Logs:
 
 ```powershell
