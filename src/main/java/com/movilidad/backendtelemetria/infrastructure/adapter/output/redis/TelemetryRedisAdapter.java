@@ -1,7 +1,9 @@
 package com.movilidad.backendtelemetria.infrastructure.adapter.output.redis;
 
 import com.movilidad.backendtelemetria.application.port.output.TelemetryCachePort;
+import com.movilidad.backendtelemetria.domain.model.LatestVehicleTelemetry;
 import com.movilidad.backendtelemetria.domain.model.Telemetry;
+import com.movilidad.backendtelemetria.domain.model.VehicleStatus;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -11,12 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.Optional;
 
 @Component
 public class TelemetryRedisAdapter implements TelemetryCachePort {
 
     private static final Duration DUPLICATE_TTL = Duration.ofSeconds(10);
-    private static final Duration LATEST_TTL = Duration.ofSeconds(60);
+    private static final Duration LATEST_TTL = Duration.ofMinutes(5);
 
     private static final String DUPLICATE_KEY_PREFIX =
             "telemetry:duplicate:";
@@ -48,12 +51,20 @@ public class TelemetryRedisAdapter implements TelemetryCachePort {
     }
 
     @Override
-    public void saveLatest(Telemetry telemetry) {
+    public void saveLatest(Telemetry telemetry, VehicleStatus status) {
 
         String key = LATEST_KEY_PREFIX + telemetry.getVehicleId();
 
+        TelemetryRedisValue redisValue = new TelemetryRedisValue(
+                telemetry.getVehicleId(),
+                telemetry.getLatitude(),
+                telemetry.getLongitude(),
+                telemetry.getTimestamp(),
+                status
+        );
+
         try {
-            String value = objectMapper.writeValueAsString(telemetry);
+            String value = objectMapper.writeValueAsString(redisValue);
 
             redisTemplate
                     .opsForValue()
@@ -62,6 +73,45 @@ public class TelemetryRedisAdapter implements TelemetryCachePort {
         } catch (JacksonException exception) {
             throw new IllegalStateException(
                     "Unable to serialize telemetry for Redis",
+                    exception
+            );
+        }
+    }
+
+    @Override
+    public Optional<LatestVehicleTelemetry> findLatest(
+            String vehicleId
+    ) {
+        String key = LATEST_KEY_PREFIX + vehicleId;
+
+        String value = redisTemplate
+                .opsForValue()
+                .get(key);
+
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        try {
+            TelemetryRedisValue redisValue =
+                    objectMapper.readValue(
+                            value,
+                            TelemetryRedisValue.class
+                    );
+
+            return Optional.of(
+                    new LatestVehicleTelemetry(
+                            redisValue.vehicleId(),
+                            redisValue.latitude(),
+                            redisValue.longitude(),
+                            redisValue.timestamp(),
+                            redisValue.status()
+                    )
+            );
+
+        } catch (JacksonException exception) {
+            throw new IllegalStateException(
+                    "Unable to deserialize telemetry from Redis",
                     exception
             );
         }

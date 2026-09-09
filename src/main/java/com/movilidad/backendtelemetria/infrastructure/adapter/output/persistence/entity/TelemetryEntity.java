@@ -1,4 +1,4 @@
-package com.movilidad.backendtelemetria.infrastructure.adapter.output.persistence;
+package com.movilidad.backendtelemetria.infrastructure.adapter.output.persistence.entity;
 
 import jakarta.persistence.*;
 

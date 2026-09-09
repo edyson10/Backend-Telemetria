@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Fleet Telemetry backend on EC2 using Docker Compose with PostgreSQL and Redis.
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair.
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+
+  RepositoryUrl:
+    Type: String
+    Description: Public Git repository URL containing the backend project.
+
+  DatabasePassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Default: change-me-1234
+
+Resources:
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Fleet Telemetry API
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+          Description: Backend API
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH - restrict this CIDR for production
+      Tags:
+        - Key: Name
+          Value: fleet-telemetry-sg
+
+  BackendInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroupIds:
+        - !GetAtt BackendSecurityGroup.GroupId
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: fleet-telemetry-backend
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash
+            set -e
+
+            dnf update -y
+            dnf install -y docker git curl
+
+            systemctl enable docker
+            systemctl start docker
+
+            # Install the Docker Compose CLI plugin.
+            mkdir -p /usr/local/lib/docker/cli-plugins
+            curl -SL https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64               -o /usr/local/lib/docker/cli-plugins/docker-compose
+            chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+            docker --version
+            docker compose version
+
+            mkdir -p /opt/fleet-telemetry
+            cd /opt/fleet-telemetry
+
+            git clone ${RepositoryUrl} .
+
+            cat > .env-docker <<EOF
+            APP_ENV=docker
+            APP_NAME=fleet-telemetry-backend
+            SERVER_PORT=8080
+            DATABASE_URL=jdbc:postgresql://postgres:5432/telemetry
+            DATABASE_USERNAME=postgres
+            DATABASE_PASSWORD=${DatabasePassword}
+            REDIS_HOST=redis
+            REDIS_PORT=6379
+            ROUTE_SERVICE_BASE_URL=http://backend:8080
+            EOF
+
+            docker compose up -d --build
+
+Outputs:
+  BackendUrl:
+    Description: Backend API
+    Value: !Sub http://${BackendInstance.PublicDnsName}:8080
+
+  SwaggerUrl:
+    Description: Swagger UI
+    Value: !Sub http://${BackendInstance.PublicDnsName}:8080/swagger-ui.html
+
+  OpenApiUrl:
+    Description: OpenAPI JSON
+    Value: !Sub http://${BackendInstance.PublicDnsName}:8080/v3/api-docs
+
+  HealthUrl:
+    Description: Actuator health
+    Value: !Sub http://${BackendInstance.PublicDnsName}:8080/actuator/health
+
+  InstanceId:
+    Description: EC2 instance
+    Value: !Ref BackendInstance

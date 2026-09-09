@@ -1,6 +1,9 @@
-package com.movilidad.backendtelemetria.infrastructure.adapter.input.rest;
+package com.movilidad.backendtelemetria.infrastructure.adapter.input.rest.mapper;
 
 import com.movilidad.backendtelemetria.domain.model.Telemetry;
+import com.movilidad.backendtelemetria.domain.model.VehicleStatus;
+import com.movilidad.backendtelemetria.infrastructure.adapter.input.rest.request.TelemetryRequest;
+import com.movilidad.backendtelemetria.infrastructure.adapter.input.rest.response.TelemetryResponse;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -16,14 +19,17 @@ public class TelemetryRestMapper {
         );
     }
 
-    public TelemetryResponse toResponse(Telemetry telemetry) {
+    public TelemetryResponse toResponse(
+            Telemetry telemetry,
+            VehicleStatus status
+    ) {
 
         return new TelemetryResponse(
                 telemetry.getVehicleId(),
                 telemetry.getLatitude(),
                 telemetry.getLongitude(),
                 telemetry.getTimestamp(),
-                "INGESTED"
+                status.name()
         );
     }
 }

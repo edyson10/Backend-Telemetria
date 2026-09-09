@@ -6,22 +6,44 @@ spring:
     default: local
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+  address: 0.0.0.0
 
 management:
+  endpoint:
+    health:
+      show-details: never
+
   endpoints:
     web:
       exposure:
         include:
           - health
           - info
+          - circuitbreakers
+          - circuitbreakerevents
 
-  endpoint:
-    health:
-      show-details: never
+  health:
+    circuitbreakers:
+      enabled: true
 
 info:
   app:
     name: Fleet Telemetry Backend
     description: Fleet telemetry and monitoring system
     version: 0.0.1
+
+route-service:
+  base-url: ${ROUTE_SERVICE_BASE_URL:http://localhost:8080}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      route-service:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 2

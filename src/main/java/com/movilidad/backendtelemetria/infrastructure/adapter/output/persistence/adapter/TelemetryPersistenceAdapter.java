@@ -1,11 +1,16 @@
-package com.movilidad.backendtelemetria.infrastructure.adapter.output.persistence;
+package com.movilidad.backendtelemetria.infrastructure.adapter.output.persistence.adapter;
 
 import com.movilidad.backendtelemetria.application.port.output.TelemetryRepositoryPort;
 import com.movilidad.backendtelemetria.domain.model.Telemetry;
+import com.movilidad.backendtelemetria.infrastructure.adapter.output.persistence.mapper.TelemetryPersistenceMapper;
+import com.movilidad.backendtelemetria.infrastructure.adapter.output.persistence.entity.TelemetryEntity;
+import com.movilidad.backendtelemetria.infrastructure.adapter.output.persistence.repository.TelemetryJpaRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Repository
 public class TelemetryPersistenceAdapter
@@ -42,5 +47,17 @@ public class TelemetryPersistenceAdapter
                 mapper.toEntity(telemetry);
 
         repository.save(entity);
+    }
+
+    @Override
+    public List<String> findVehicleIds() {
+        return repository.findDistinctVehicleIds();
+    }
+
+    @Override
+    public Optional<Telemetry> findLatestByVehicleId(String vehicleId) {
+        return repository
+                .findTopByVehicleIdOrderByTimestampDesc(vehicleId)
+                .map(mapper::toDomain);
     }
 }

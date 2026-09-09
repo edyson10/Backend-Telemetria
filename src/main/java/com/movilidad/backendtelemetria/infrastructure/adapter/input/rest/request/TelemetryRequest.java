@@ -1,4 +1,4 @@
-package com.movilidad.backendtelemetria.infrastructure.adapter.input.rest;
+package com.movilidad.backendtelemetria.infrastructure.adapter.input.rest.request;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;

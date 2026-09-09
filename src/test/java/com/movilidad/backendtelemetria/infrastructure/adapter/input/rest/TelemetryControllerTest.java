@@ -3,6 +3,9 @@ package com.movilidad.backendtelemetria.infrastructure.adapter.input.rest;
 import com.movilidad.backendtelemetria.application.port.input.IngestTelemetryUseCase;
 import com.movilidad.backendtelemetria.application.service.TelemetryIngestionResult;
 import com.movilidad.backendtelemetria.domain.model.Telemetry;
+import com.movilidad.backendtelemetria.domain.model.VehicleStatus;
+import com.movilidad.backendtelemetria.infrastructure.adapter.input.rest.controller.TelemetryController;
+import com.movilidad.backendtelemetria.infrastructure.adapter.input.rest.mapper.TelemetryRestMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -41,7 +44,10 @@ class TelemetryControllerTest {
 
         when(ingestTelemetryUseCase.ingest(any(Telemetry.class)))
                 .thenReturn(
-                        TelemetryIngestionResult.accepted(telemetry)
+                        TelemetryIngestionResult.accepted(
+                                telemetry,
+                                VehicleStatus.MOVING
+                        )
                 );
 
         String requestBody = """
@@ -149,7 +155,10 @@ class TelemetryControllerTest {
 
         when(ingestTelemetryUseCase.ingest(any(Telemetry.class)))
                 .thenReturn(
-                        TelemetryIngestionResult.duplicated(telemetry)
+                        TelemetryIngestionResult.duplicated(
+                                telemetry,
+                                VehicleStatus.MOVING
+                        )
                 );
 
         String requestBody = """

@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: Sistema de Telemetría y Monitoreo de Flotas con GPS.
+  version: 1.0.0
+  description: API de Sistema de Telemetría y Monitoreo de Flotas con GPS.
+servers:
+  - url: http://localhost:8080
+    description: Local/Docker
+paths:
+  /api/v1/telemetry:
+    post:
+      tags: [Telemetria]
+      summary: Servicio de Ingesta (Geolocalización)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryRequest'
+      responses:
+        '201':
+          description: Telemetry accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryResponse'
+        '200':
+          description: Duplicate telemetry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryResponse'
+        '400':
+          description: Invalid request
+
+  /api/v1/vehicles:
+    get:
+      tags: [Vehicles]
+      summary: Get current vehicle snapshots
+      responses:
+        '200':
+          description: Current vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VehicleResponse'
+
+  /api/v1/alerts:
+    get:
+      tags: [Alerts]
+      summary: Get recent alerts
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Recent alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertResponse'
+
+  /api/v1/routes:
+    get:
+      tags: [Routes]
+      summary: Calculate route
+      parameters:
+        - in: query
+          name: originLat
+          required: true
+          schema: {type: number, format: double}
+        - in: query
+          name: originLng
+          required: true
+          schema: {type: number, format: double}
+        - in: query
+          name: destinationLat
+          required: true
+          schema: {type: number, format: double}
+        - in: query
+          name: destinationLng
+          required: true
+          schema: {type: number, format: double}
+      responses:
+        '200':
+          description: Route information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteInformation'
+
+components:
+  schemas:
+    TelemetryRequest:
+      type: object
+      required: [vehicleId, lat, lng, timestamp]
+      properties:
+        vehicleId: {type: string, example: VH-001}
+        lat: {type: number, format: double, minimum: -90, maximum: 90, example: 6.2442}
+        lng: {type: number, format: double, minimum: -180, maximum: 180, example: -75.5812}
+        timestamp: {type: string, format: date-time}
+
+    TelemetryResponse:
+      type: object
+      properties:
+        vehicleId: {type: string}
+        lat: {type: number, format: double}
+        lng: {type: number, format: double}
+        timestamp: {type: string, format: date-time}
+        status:
+          type: string
+          enum: [MOVING, STOPPED, ALERT]
+
+    VehicleResponse:
+      allOf:
+        - $ref: '#/components/schemas/TelemetryResponse'
+
+    AlertResponse:
+      type: object
+      properties:
+        vehicleId: {type: string}
+        type: {type: string}
+        message: {type: string}
+        timestamp: {type: string, format: date-time}
+
+    RouteInformation:
+      type: object
+      properties:
+        distanceKm: {type: number, format: double}
+        estimatedMinutes: {type: integer}

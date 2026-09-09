@@ -1,4 +1,4 @@
-package com.movilidad.backendtelemetria.infrastructure.adapter.input.rest;
+package com.movilidad.backendtelemetria.infrastructure.adapter.input.rest.response;
 
 import java.time.Instant;
 
