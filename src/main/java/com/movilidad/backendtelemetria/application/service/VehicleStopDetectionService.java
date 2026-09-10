@@ -1,9 +1,11 @@
 package com.movilidad.backendtelemetria.application.service;
 
+import com.movilidad.backendtelemetria.application.port.output.TelemetryCachePort;
 import com.movilidad.backendtelemetria.domain.model.Telemetry;
 import com.movilidad.backendtelemetria.domain.model.VehicleStatus;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 
 public class VehicleStopDetectionService {
@@ -11,12 +13,25 @@ public class VehicleStopDetectionService {
     private static final Duration STOP_THRESHOLD =
             Duration.ofMinutes(1);
 
+    private final TelemetryCachePort telemetryCachePort;
+
+    public VehicleStopDetectionService(
+            TelemetryCachePort telemetryCachePort
+    ) {
+        this.telemetryCachePort = telemetryCachePort;
+    }
+
     public VehicleStatus evaluate(
             Telemetry current,
             Optional<Telemetry> previous
     ) {
 
         if (previous.isEmpty()) {
+            telemetryCachePort.saveStopStart(
+                    current.getVehicleId(),
+                    current.getTimestamp()
+            );
+
             return VehicleStatus.MOVING;
         }
 
@@ -34,11 +49,29 @@ public class VehicleStopDetectionService {
                         ) == 0;
 
         if (!samePosition) {
+            telemetryCachePort.deleteStopStart(
+                    current.getVehicleId()
+            );
+
+            return VehicleStatus.MOVING;
+        }
+
+        Optional<Instant> stopStart =
+                telemetryCachePort.findStopStart(
+                        current.getVehicleId()
+                );
+
+        if (stopStart.isEmpty()) {
+            telemetryCachePort.saveStopStart(
+                    current.getVehicleId(),
+                    previousTelemetry.getTimestamp()
+            );
+
             return VehicleStatus.MOVING;
         }
 
         Duration elapsed = Duration.between(
-                previousTelemetry.getTimestamp(),
+                stopStart.get(),
                 current.getTimestamp()
         );
 
