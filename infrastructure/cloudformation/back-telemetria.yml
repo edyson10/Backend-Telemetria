@@ -98,7 +98,7 @@ Resources:
             ROUTE_SERVICE_BASE_URL=http://backend:8080
             EOF
 
-            docker compose up -d --build
+            docker compose --env-file .env-server up -d --build
 
 Outputs:
   BackendUrl:
